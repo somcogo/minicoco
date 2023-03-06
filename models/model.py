@@ -1,40 +1,27 @@
 import torch.nn as  nn
-import math
 
-class SampleModel(nn.Module):
-    def __init__(self, in_channels, out_channels):
+from .UNetBlock  import UNetBlock
+
+class AttUNet(nn.Module):
+    def __init__(self, num_classes):
         super().__init__()
-        self.layer1 = nn.Linear(in_channels, out_channels)
-        self.layer2 = nn.Linear(out_channels, out_channels)
-        self.relu = nn.ReLU()
-        self.batch_norm = nn.BatchNorm1d
-        self._init_weights()
 
-    # see also https://github.com/pytorch/pytorch/issues/18182
-    def _init_weights(self):
-        for m in self.modules():
-            if type(m) in {
-                nn.Linear,
-                nn.Conv3d,
-                nn.Conv2d,
-                nn.ConvTranspose2d,
-                nn.ConvTranspose3d,
-            }:
-                nn.init.kaiming_normal_(
-                    m.weight.data, a=0, mode='fan_out', nonlinearity='relu',
-                )
-                if m.bias is not None:
-                    fan_in, fan_out = \
-                        nn.init._calculate_fan_in_and_fan_out(m.weight.data)
-                    bound = 1 / math.sqrt(fan_out)
-                    nn.init.normal_(m.bias, -bound, bound)
+        self.conv0 = nn.Conv2d(in_channels=3, out_channels=4, kernel_size=1)
+        self.block1 = UNetBlock(in_channels=4, out_channels=64, down=True, attention=True)
+        self.block2 = UNetBlock(in_channels=64, out_channels=128, down=True, attention=True)
+        self.block3 = UNetBlock(in_channels=128, out_channels=256, down=True, attention=True)
+        self.block4 = UNetBlock(in_channels=256, out_channels=128, up=True, attention=True)
+        self.block5 = UNetBlock(in_channels=128, out_channels=64, up=True, attention=True)
+        self.block6 = UNetBlock(in_channels=64, out_channels=32, up=True, attention=True)
+        self.conv = nn.Conv2d(in_channels=32, out_channels=num_classes, kernel_size=1)
 
     def forward(self, x):
-        x = self.layer1(x)
-        x = self.relu(x)
-        x = self.batch_norm(x)
-        x = self.layer2(x)
-        x = self.relu(x)
-        out = self.batch_norm(x)
-
+        x = self.conv0(x)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        x = self.block4(x)
+        x = self.block5(x)
+        x = self.block6(x)
+        out = self.conv(x)
         return out
