@@ -19,7 +19,7 @@ from utils.data_loader import get_trn_loader, get_val_loader, get_multi_site_val
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)
 log.setLevel(logging.INFO)
-log.setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
 class MultiSiteTrainingApp:
     def __init__(self, sys_argv=None, epochs=None, batch_size=None, logdir=None, lr=None, site_number=5, comment=None, layer=None, sub_layer=None, model_name=None, merge_mode=None):
@@ -65,39 +65,11 @@ class MultiSiteTrainingApp:
         self.logdir = os.path.join('./runs', self.args.logdir)
         os.makedirs(self.logdir, exist_ok=True)
 
-        # For pretrainging
-        #
-        # self.dict_path = 'saved_models/best_site1/imagenet_2023-02-10_14.18.20_lr6augAdamW5classes.best.state'
-
         self.trn_writer = None
         self.val_writer = None
         self.totalTrainingSamples_count = 0
 
         self.models= self.initModel()
-        # For freezing layers
-        # 
-        # self.params_to_update = []
-        # for i in range(self.args.site_number):
-        #     self.params_to_update.append([])
-        # if self.args.layer is not None:
-        #     for i in range(self.args.site_number):
-        #         for name, param in self.models[i].named_parameters():
-        #             layer = name.split('.')[1]
-        #             sub_layer = name.split('.')[2]
-        #             if (layer == self.args.layer and sub_layer == self.args.sub_layer) or (layer == 'fc'):
-        #                 self.params_to_update[i].append(param)
-        # else:
-        #     for i in range(self.args.site_number):
-        #         for name, param in self.models[i].named_parameters():
-        #             self.params_to_update[i].append(param)
-        #
-        #
-        # for model in self.models:
-        #     for param in model.parameters():
-        #         param.requires_grad = False
-        # for param_group in self.params_to_update:
-        #     for param in param_group:
-        #         param.requires_grad = True
         self.optims = self.initOptimizer()
 
     def initModel(self):
@@ -111,22 +83,11 @@ class MultiSiteTrainingApp:
                     model = nn.DataParallel(model)
             for model in models:
                 model = model.to(self.device)
-
-        # For pretraining
-        #
-        # if self.args.layer is not None:
-        #     for model in models:
-        #         model.load_state_dict(torch.load(self.dict_path)['model_state'], strict=False)
         return models
 
     def initOptimizer(self):
         optims = []
         for i in range(self.args.site_number):
-            # For freezing layers
-            #
-            # if self.args.layer is not None:
-            #     optims.append(AdamW(params=self.params_to_update[i], lr=self.args.lr, weight_decay=1e-5))
-            # else:
             optims.append(Adam(params=self.models[i].parameters(), lr=self.args.lr))
 
         return optims
