@@ -15,8 +15,9 @@ class MiniCocoDataset(Dataset):
         self.mask_ds = h5_file['mask']
         self.image_ids_ds = h5_file['coco_img_ids']
         if site is not None:
-            self.image_ds = self.image_ds[site * 25000: (site + 1) * 25000]
-            self.mask_ds = self.mask_ds[site * 25000: (site + 1) * 25000]
+            images_per_site = self.image_ds.shape[0] // site_number
+            self.image_ds = self.image_ds[site * images_per_site: (site + 1) * images_per_site]
+            self.mask_ds = self.mask_ds[site * images_per_site: (site + 1) * images_per_site]
         if site_number is not None:
             self.site_number = site_number
             self.image_per_site = self.image_ds.shape[0] // site_number
@@ -53,8 +54,8 @@ class MiniCocoDataset(Dataset):
             return image, mask, image_id
         
 
-def get_trn_loader(batch_size, site=None):
-    trn_dataset = MiniCocoDataset(data_path=data_path, mode='trn', site=site)
+def get_trn_loader(batch_size, site=None, site_number=None):
+    trn_dataset = MiniCocoDataset(data_path=data_path, mode='trn', site=site, site_number=site_number)
     train_loader = DataLoader(trn_dataset, batch_size=batch_size, shuffle=True, drop_last=False, num_workers=8)
     return train_loader
 
