@@ -191,6 +191,8 @@ class MiniCocoTrainingApp:
         loss = loss_ptwise.sum(dim=[1, 2])
 
         correct_mask = pred_label == mask_batch
+        background_mask = mask_batch == 0
+        correct_mask[background_mask] = False
 
         pos_pred = pred_label > 0
         neg_pred = ~pos_pred
@@ -204,12 +206,13 @@ class MiniCocoTrainingApp:
         true_neg = (neg_pred & neg_mask).sum(dim=[1, 2]).int()
         false_pos = neg_count - true_neg
         false_neg = pos_count - true_pos
+        epsilon = 0.1
 
-        dice_score = (2 * true_pos ) / (2 * true_pos + false_pos + false_neg)
+        dice_score = (2*true_pos + epsilon) / (2*true_pos + false_pos + false_neg + epsilon)
 
         correct = torch.sum(correct_mask, dim=[1, 2])
         pos_pred_count = torch.sum(pos_pred, dim=[1, 2])
-        accuracy = correct / pos_pred_count
+        accuracy = (correct+epsilon) / (pos_pred_count+epsilon)
 
         start_ndx = batch_ndx * self.args.batch_size
         end_ndx = start_ndx + mask_batch.size(0)
