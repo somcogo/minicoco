@@ -37,18 +37,18 @@ class MiniCocoDataset(Dataset):
             images_np = np.array([self.image_ds[ndx] for ndx in indices])
             images = torch.from_numpy(images_np).permute(0, 3, 1, 2)
             masks_np = np.array([self.mask_ds[ndx] for ndx in indices])
-            masks = torch.from_numpy(masks_np)
+            masks = torch.from_numpy(masks_np).permute(0, 3, 1, 2).mean(dim=1).to(dtype=torch.long)
             image_ids_np = np.array([self.image_ids_ds[ndx] for ndx in indices])
-            image_ids = torch.Tensor(image_ids_np)
+            image_ids = torch.from_numpy(image_ids_np)
 
             return images, masks, image_ids
         else:
             image_np = np.array(self.image_ds[index])
             image = torch.from_numpy(image_np).permute(2, 0, 1)
             mask_np = np.array(self.mask_ds[index])
-            mask = torch.from_numpy(mask_np)
+            mask = torch.from_numpy(mask_np).permute(2, 0, 1).mean(dim=0).to(dtype=torch.long)
             image_id_np = np.array(self.image_ids_ds[index])
-            image_id = torch.Tensor(image_id_np)
+            image_id = torch.from_numpy(image_id_np)
 
             return image, mask, image_id
         

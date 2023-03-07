@@ -19,9 +19,9 @@ from utils.data_loader import get_trn_loader, get_val_loader
 log = logging.getLogger(__name__)
 # log.setLevel(logging.WARN)
 log.setLevel(logging.INFO)
-log.setLevel(logging.DEBUG)
+# log.setLevel(logging.DEBUG)
 
-class TinyImageNetTrainingApp:
+class MiniCocoTrainingApp:
     def __init__(self, sys_argv=None, epochs=None, batch_size=None, logdir=None, lr=None, site=None, comment=None, site_number=5, model_name=None):
         if sys_argv is None:
             sys_argv = sys.argv[1:]
@@ -79,8 +79,8 @@ class TinyImageNetTrainingApp:
         return Adam(params=self.model.parameters(), lr=self.args.lr)
 
     def initDl(self):
-        trn_dl = get_trn_loader(self.args.batch_size, site=self.args.site, device=self.device)
-        val_dl = get_val_loader(self.args.batch_size, device=self.device)
+        trn_dl = get_trn_loader(self.args.batch_size, site=self.args.site)
+        val_dl = get_val_loader(self.args.batch_size)
         return trn_dl, val_dl
 
     def initTensorboardWriters(self):
@@ -126,7 +126,7 @@ class TinyImageNetTrainingApp:
 
     def doTraining(self, epoch_ndx, train_dl):
         self.model.train()
-        trnMetrics = torch.zeros(2, len(train_dl), device=self.device)
+        trnMetrics = torch.zeros(3, len(train_dl.dataset), device=self.device)
 
         if epoch_ndx == 1 or epoch_ndx % 10 == 0:
             log.warning('E{} Training ---/{} starting'.format(epoch_ndx, len(train_dl)))
@@ -153,7 +153,7 @@ class TinyImageNetTrainingApp:
     def doValidation(self, epoch_ndx, val_dl):
         with torch.no_grad():
             self.model.eval()
-            valMetrics = torch.zeros(2, len(val_dl), device=self.device)
+            valMetrics = torch.zeros(3, len(val_dl.dataset), device=self.device)
 
             if epoch_ndx == 1 or epoch_ndx % 10 == 0:
                 log.warning('E{} Validation ---/{} starting'.format(epoch_ndx, len(val_dl)))
@@ -171,7 +171,7 @@ class TinyImageNetTrainingApp:
         return valMetrics.to('cpu'), correct_ratio
 
     def computeBatchLoss(self, batch_ndx, batch_tup, metrics, mode):
-        batch, mask_batch = batch_tup
+        batch, mask_batch, img_ids = batch_tup
         batch = batch.to(device=self.device, non_blocking=True)
         mask_batch = mask_batch.to(device=self.device, non_blocking=True)
 
@@ -186,8 +186,9 @@ class TinyImageNetTrainingApp:
 
         pred = self.model(batch)
         pred_label = torch.argmax(pred, dim=1)
-        loss_fn = nn.CrossEntropyLoss()
-        loss = loss_fn(pred, mask_batch)
+        loss_fn = nn.CrossEntropyLoss(reduction='none')
+        loss_ptwise = loss_fn(pred, mask_batch)
+        loss = loss_ptwise.sum(dim=[1, 2])
 
         correct_mask = pred_label == mask_batch
 
@@ -196,23 +197,28 @@ class TinyImageNetTrainingApp:
         pos_mask = mask_batch > 0
         neg_mask = ~pos_mask
 
-        neg_count = neg_mask.sum(dim=[1, 2, 3]).int()
-        pos_count = pos_mask.sum(dim=[1, 2, 3]).int()
+        neg_count = neg_mask.sum(dim=[1, 2]).int()
+        pos_count = pos_mask.sum(dim=[1, 2]).int()
 
-        true_pos = (pos_pred & pos_mask).sum(dim=[1, 2, 3]).int()
-        true_neg = (neg_pred & neg_mask).sum(dim=[1, 2, 3]).int()
+        true_pos = (pos_pred & pos_mask).sum(dim=[1, 2]).int()
+        true_neg = (neg_pred & neg_mask).sum(dim=[1, 2]).int()
         false_pos = neg_count - true_neg
         false_neg = pos_count - true_pos
 
         dice_score = (2 * true_pos ) / (2 * true_pos + false_pos + false_neg)
 
-        correct = torch.sum(correct_mask)
-        accuracy = correct / batch.shape[0]
+        correct = torch.sum(correct_mask, dim=[1, 2])
+        pos_pred_count = torch.sum(pos_pred, dim=[1, 2])
+        accuracy = correct / pos_pred_count
 
-        metrics[0, batch_ndx] = loss.detach()
-        metrics[1, batch_ndx] = accuracy
+        start_ndx = batch_ndx * self.args.batch_size
+        end_ndx = start_ndx + mask_batch.size(0)
 
-        return loss.mean(), accuracy
+        metrics[0, start_ndx:end_ndx] = loss.detach()
+        metrics[1, start_ndx:end_ndx] = accuracy
+        metrics[2, start_ndx:end_ndx] = dice_score
+
+        return loss.mean(), accuracy.mean()
 
     def logMetrics(
         self,
@@ -243,11 +249,10 @@ class TinyImageNetTrainingApp:
             scalar_value=metrics[1].mean(),
             global_step=self.totalTrainingSamples_count
         )
-        for i in range(self.args.site_number):
-            writer.add_scalar(
-                'accuracy/class {}'.format(i + 1),
-                scalar_value=metrics[2+i].mean(),
-                global_step=self.totalTrainingSamples_count
+        writer.add_scalar(
+            'avg dice',
+            scalar_value=metrics[2].mean(),
+            global_step=self.totalTrainingSamples_count
             )
         writer.flush()
 
@@ -298,4 +303,4 @@ class TinyImageNetTrainingApp:
             log.debug("Saved model params to {}".format(best_path))
 
 if __name__ == '__main__':
-    TinyImageNetTrainingApp().main()
+    MiniCocoTrainingApp().main()
