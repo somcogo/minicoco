@@ -10,7 +10,7 @@ data_path = 'data'
 class MiniCocoDataset(Dataset):
     def __init__(self, data_path, mode, site=None, site_number=None):
         super().__init__()
-        h5_file = h5py.File(os.path.join(data_path, 'minicoco_{}.hdf5'.format(mode)), 'r')
+        h5_file = h5py.File(os.path.join(data_path, 'minicoco_{}_v2.hdf5'.format(mode)), 'r')
         self.image_ds = h5_file['data']
         self.mask_ds = h5_file['mask']
         self.image_ids_ds = h5_file['coco_img_ids']
