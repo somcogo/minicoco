@@ -243,7 +243,7 @@ class MiniCocoTrainingApp:
 
         writer = getattr(self, mode_str + '_writer')
         writer.add_scalar(
-            'loss_total',
+            'loss/overall',
             scalar_value=metrics[0].mean(),
             global_step=self.totalTrainingSamples_count
         )
@@ -253,7 +253,7 @@ class MiniCocoTrainingApp:
             global_step=self.totalTrainingSamples_count
         )
         writer.add_scalar(
-            'avg dice',
+            'dice score/overall',
             scalar_value=metrics[2].mean(),
             global_step=self.totalTrainingSamples_count
             )

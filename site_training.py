@@ -168,7 +168,7 @@ class MultiSiteTrainingApp:
             for optim in self.optims:
                 optim.step()
 
-            assert self.args.merge_mode in ['projection', 'second_half', 'first_half', 'attention', 'everything']
+            assert self.args.merge_mode in ['projection', 'second_half', 'first_half', 'attention', 'everything', 'notattention']
             if self.args.merge_mode == 'projection':
                 self.mergeParams(layer_names=['qkv'], depth=1)
             elif self.args.merge_mode == 'second_half':
@@ -179,6 +179,8 @@ class MultiSiteTrainingApp:
                 self.mergeParams(layer_names=['qkv', 'proj'], depth=1)
             elif self.args.merge_mode == 'everything':
                 self.mergeParams(layer_names=['conv0', 'block1', 'block2', 'block3', 'block4', 'block5', 'block6', 'lin'], depth=0)
+            elif self.args.merge_mode == 'notattention':
+                self.mergeParams(layer_names=['weight', 'bias', 'norm0', 'conv0', 'conv1', 'skip', 'norm1'], depth=1)
 
         self.totalTrainingSamples_count += len(multi_trn_dl.dataset) * self.args.site_number
 
